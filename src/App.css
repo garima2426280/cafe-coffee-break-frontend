@@ -11,7 +11,7 @@
 body {
   color: white;
   background: black;
-  padding-bottom: 60px;
+  padding-bottom: 0px;
 }
 
 /* ================================
@@ -565,12 +565,12 @@ nav li:hover {
    WELCOME PAGE
 ================================ */
 .welcome-page {
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  justify-content: space-between;
 }
 
 /* BACKGROUND CIRCLES */
