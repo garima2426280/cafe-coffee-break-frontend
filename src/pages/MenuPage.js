@@ -9,7 +9,7 @@ import greenteaImg from '../assets/images/greentea.png';
 
 const CATEGORIES = ['Hot Drinks', 'Cold Drinks', 'Snacks', 'Meals'];
 
-export default function MenuPage({ cart, increase, decrease }) {
+export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,6 +18,7 @@ export default function MenuPage({ cart, increase, decrease }) {
       try {
         const res = await axios.get('/menu');
         setItems(res.data);
+        if (onMenuLoaded) onMenuLoaded(res.data);
       } catch (err) {
         console.error(err);
       } finally {

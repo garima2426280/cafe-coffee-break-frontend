@@ -120,7 +120,7 @@ export default function BillPage({ cart, menuItems, clearCart, showPage, userPho
           <option value="">Select Payment</option>
           <option>Cash</option>
           <option>UPI</option>
-          <option>Card</option>
+         
         </select>
 
         <button type="button" onClick={submitOrder}>

@@ -4,6 +4,9 @@ import './App.css';
 import bgVideo from './assets/video/1-1.mp4';
 import axios from './api/axios';
 
+import coffeeImg from './assets/images/coffee.png';
+import coldcoffeeImg from './assets/images/coldcoffee.png';
+
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import CartBar from './components/CartBar';
@@ -28,16 +31,17 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(false);
 
   useEffect(() => {
-    const fetchMenu = async () => {
-      try {
-        const res = await axios.get('/menu');
-        setMenuItems(res.data);
-      } catch (err) {
-        console.error('Failed to fetch menu:', err);
-      }
-    };
     fetchMenu();
   }, []);
+
+  const fetchMenu = async () => {
+    try {
+      const res = await axios.get('/menu');
+      setMenuItems(res.data);
+    } catch (err) {
+      console.error('Failed to fetch menu:', err);
+    }
+  };
 
   const increase = (id) => {
     setCart(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
@@ -59,7 +63,6 @@ export default function App() {
     return sum + qty * (item ? item.price : 0);
   }, 0);
 
-  // when user logs in — show splash first then go to app
   const handleUserEnter = (phone) => {
     setUserPhone(phone);
     setShowSplash(true);
@@ -72,7 +75,7 @@ export default function App() {
         <source src={bgVideo} type="video/mp4" />
       </video>
 
-      {/* SPLASH SCREEN - shows after login */}
+      {/* SPLASH SCREEN */}
       {showSplash && (
         <SplashScreen
           onComplete={() => {
@@ -119,17 +122,30 @@ export default function App() {
                   <div className="text left-text">Coffee <br /> makes</div>
                   <div className="text right-text">Everything <br /> better.</div>
                   <div className="side-text right">DOWN</div>
+                  <img src={coffeeImg} className="choco left-choco" alt="coffee" />
+                  <img src={coldcoffeeImg} className="choco right-choco" alt="cold coffee" />
                 </section>
+
+                {/* OUR MENU HEADING */}
+                <div className="our-menu-heading">
+                  <h2>Our Menu</h2>
+                </div>
+
                 <MenuPage
                   cart={cart}
                   increase={increase}
                   decrease={decrease}
+                  menuItems={menuItems}
+                  onMenuLoaded={(items) => setMenuItems(items)}
                 />
               </>
             )}
 
             {page === 'cartPage' && (
-              <CartPage cart={cart} menuItems={menuItems} />
+              <CartPage
+                cart={cart}
+                menuItems={menuItems}
+              />
             )}
 
             {page === 'billPage' && (
@@ -148,11 +164,15 @@ export default function App() {
 
           </div>
 
-          <CartBar
-            totalItems={totalItems}
-            totalPrice={totalPrice}
-            goToBill={() => setPage('billPage')}
-          />
+          {/* HIDE CART BAR ON BILL PAGE */}
+          {page !== 'billPage' && (
+            <CartBar
+              totalItems={totalItems}
+              totalPrice={totalPrice}
+              goToBill={() => setPage('billPage')}
+            />
+          )}
+
           <BottomNav page={page} showPage={setPage} />
           <Footer />
         </>
