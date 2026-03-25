@@ -26,6 +26,7 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
       }
     };
     fetchItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
