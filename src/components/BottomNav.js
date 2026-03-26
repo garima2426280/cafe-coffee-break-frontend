@@ -22,6 +22,12 @@ export default function BottomNav({ page, showPage }) {
         My Bill
       </div>
       <div
+        className={`nav-item ${page === 'feedbackPage' ? 'active' : ''}`}
+        onClick={() => showPage('feedbackPage')}
+      >
+        Feedback
+      </div>
+      <div
         className={`nav-item ${page === 'historyPage' ? 'active' : ''}`}
         onClick={() => showPage('historyPage')}
       >

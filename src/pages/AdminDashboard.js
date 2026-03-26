@@ -16,11 +16,23 @@ export default function AdminDashboard({ onLogout }) {
   const [success, setSuccess] = useState('');
   const [activeCategory, setActiveCategory] = useState('Hot Drinks');
   const [mainTab, setMainTab] = useState('dashboard');
+
+  // history state
   const [searchPhone, setSearchPhone] = useState('');
   const [historyOrders, setHistoryOrders] = useState([]);
   const [historySearched, setHistorySearched] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
+
+  // reports state
+  const [reportType, setReportType] = useState('daily');
+  const [reportData, setReportData] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState('');
+
+  // feedback state
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   const token = localStorage.getItem('adminToken');
 
@@ -103,16 +115,57 @@ export default function AdminDashboard({ onLogout }) {
     }
   };
 
+  const fetchReport = async (type) => {
+    setReportLoading(true);
+    setReportError('');
+    setReportData([]);
+    try {
+      const res = await axios.get(`/reports/${type}`);
+      setReportData(res.data);
+    } catch (err) {
+      setReportError('Failed to fetch report.');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const fetchFeedbacks = async () => {
+    setFeedbackLoading(true);
+    try {
+      const res = await axios.get('/feedback');
+      setFeedbacks(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (mainTab === 'reports') fetchReport(reportType);
+    if (mainTab === 'feedback') fetchFeedbacks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainTab]);
+
+  useEffect(() => {
+    if (mainTab === 'reports') fetchReport(reportType);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportType]);
+
   const filteredItems = items.filter(item => item.category === activeCategory);
 
-  return (
-    <div className="admin-dashboard-wrapper" style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-    }}>
+  const getMaxTotal = () => Math.max(...reportData.map(d => d.total || 0), 1);
 
-      {/* FIXED HEADER */}
+  const renderStars = (rating) => {
+    return [1, 2, 3, 4, 5].map(s => (
+      <span key={s} style={{ color: s <= rating ? '#ff7b00' : 'rgba(255,255,255,0.2)', fontSize: '16px' }}>★</span>
+    ));
+  };
+
+  return (
+    <div className="admin-dashboard-wrapper" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+
+      {/* HEADER */}
       <div className="admin-dash-header">
         <div className="admin-dash-header-left">
           <span className="admin-dash-icon">☕</span>
@@ -121,106 +174,61 @@ export default function AdminDashboard({ onLogout }) {
             <p className="admin-dash-subtitle">Cafe Coffee Break</p>
           </div>
         </div>
-        <button className="admin-logout-btn" onClick={onLogout}>
-          Logout
-        </button>
+        <button className="admin-logout-btn" onClick={onLogout}>Logout</button>
       </div>
 
       {/* TABS */}
       <div className="admin-dash-tabs">
-        <button
-          className={`admin-dash-tab ${mainTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setMainTab('dashboard')}
-        >
-          Dashboard
-        </button>
-        <button
-          className={`admin-dash-tab ${mainTab === 'history' ? 'active' : ''}`}
-          onClick={() => setMainTab('history')}
-        >
-          User History
-        </button>
+        {['dashboard', 'history', 'reports', 'feedback'].map(tab => (
+          <button
+            key={tab}
+            className={`admin-dash-tab ${mainTab === tab ? 'active' : ''}`}
+            onClick={() => setMainTab(tab)}
+          >
+            {tab === 'dashboard' && 'Dashboard'}
+            {tab === 'history' && 'User History'}
+            {tab === 'reports' && 'Reports'}
+            {tab === 'feedback' && 'Feedback'}
+          </button>
+        ))}
       </div>
 
       {/* TAB: DASHBOARD */}
       {mainTab === 'dashboard' && (
         <div className="admin-dash-content" style={{ flex: 1 }}>
-
           <div className="admin-form-card">
             <h3 className="admin-form-title">Add New Item</h3>
-
             {error && <div className="admin-alert admin-alert-error">{error}</div>}
             {success && <div className="admin-alert admin-alert-success">{success}</div>}
-
             <div className="admin-form-grid">
               <div className="admin-form-field">
                 <label className="admin-field-label">Item Name *</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="e.g. Masala Tea"
-                  className="admin-field-input"
-                />
+                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Masala Tea" className="admin-field-input" />
               </div>
               <div className="admin-form-field">
                 <label className="admin-field-label">Price (₹) *</label>
-                <input
-                  type="number"
-                  value={price}
-                  onChange={e => setPrice(e.target.value)}
-                  placeholder="e.g. 30"
-                  className="admin-field-input"
-                />
+                <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="e.g. 30" className="admin-field-input" />
               </div>
             </div>
-
             <div className="admin-form-field">
               <label className="admin-field-label">Category *</label>
-              <select
-                value={category}
-                onChange={e => setCategory(e.target.value)}
-                className="admin-field-input"
-              >
-                {CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
+              <select value={category} onChange={e => setCategory(e.target.value)} className="admin-field-input">
+                {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
-
             <div className="admin-form-field">
               <label className="admin-field-label">Item Image *</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="admin-file-input"
-              />
-              {preview && (
-                <img
-                  src={preview}
-                  alt="preview"
-                  className="admin-preview-img"
-                />
-              )}
+              <input type="file" accept="image/*" onChange={handleImageChange} className="admin-file-input" />
+              {preview && <img src={preview} alt="preview" className="admin-preview-img" />}
             </div>
-
-            <button
-              onClick={handleAdd}
-              disabled={loading}
-              className="admin-add-btn"
-            >
+            <button onClick={handleAdd} disabled={loading} className="admin-add-btn">
               {loading ? 'Adding...' : '+ Add Item'}
             </button>
           </div>
 
           <div className="admin-category-tabs">
             {CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`admin-category-tab ${activeCategory === cat ? 'active' : ''}`}
-              >
+              <button key={cat} onClick={() => setActiveCategory(cat)} className={`admin-category-tab ${activeCategory === cat ? 'active' : ''}`}>
                 {cat} ({items.filter(i => i.category === cat).length})
               </button>
             ))}
@@ -228,29 +236,17 @@ export default function AdminDashboard({ onLogout }) {
 
           <div className="menu-list">
             {filteredItems.length === 0 ? (
-              <div className="admin-empty">
-                <p>No items in this category yet.</p>
-              </div>
+              <div className="admin-empty"><p>No items in this category yet.</p></div>
             ) : (
               filteredItems.map(item => (
                 <div className="menu-row" key={item._id}>
-                  <img
-                    src={getImageUrl(item.image)}
-                    alt={item.name}
-                    className="row-img"
-                    onError={e => e.target.style.display = 'none'}
-                  />
+                  <img src={getImageUrl(item.image)} alt={item.name} className="row-img" onError={e => e.target.style.display = 'none'} />
                   <div className="row-info">
                     <b>{item.name}</b>
                     <p>₹{item.price}</p>
                     <p style={{ fontSize: '11px', color: '#ffb347' }}>{item.category}</p>
                   </div>
-                  <button
-                    onClick={() => handleDelete(item._id)}
-                    className="admin-delete-btn"
-                  >
-                    Delete
-                  </button>
+                  <button onClick={() => handleDelete(item._id)} className="admin-delete-btn">Delete</button>
                 </div>
               ))
             )}
@@ -263,53 +259,23 @@ export default function AdminDashboard({ onLogout }) {
         <div className="admin-dash-content" style={{ flex: 1 }}>
           <div className="admin-form-card">
             <h3 className="admin-form-title">Search User History</h3>
-            <p className="admin-form-desc">
-              Enter a registered phone number to view their order history
-            </p>
-
+            <p className="admin-form-desc">Enter a registered phone number to view their order history</p>
             <div className="admin-search-row">
-              <input
-                type="number"
-                className="admin-field-input"
-                placeholder="Enter 10-digit phone number"
-                value={searchPhone}
-                onChange={e => setSearchPhone(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && searchUserHistory()}
-                style={{ flex: 1, marginBottom: 0 }}
-              />
-              <button
-                className="admin-add-btn"
-                onClick={searchUserHistory}
-                style={{ width: 'auto', padding: '11px 28px' }}
-              >
-                Search
-              </button>
+              <input type="number" className="admin-field-input" placeholder="Enter 10-digit phone number" value={searchPhone} onChange={e => setSearchPhone(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchUserHistory()} style={{ flex: 1, marginBottom: 0 }} />
+              <button className="admin-add-btn" onClick={searchUserHistory} style={{ width: 'auto', padding: '11px 28px' }}>Search</button>
             </div>
-
-            {historyError && (
-              <div className="admin-alert admin-alert-error" style={{ marginTop: '12px' }}>
-                {historyError}
-              </div>
-            )}
+            {historyError && <div className="admin-alert admin-alert-error" style={{ marginTop: '12px' }}>{historyError}</div>}
           </div>
 
-          {historyLoading && (
-            <div className="admin-empty">
-              <p style={{ color: 'white' }}>Loading orders...</p>
-            </div>
-          )}
+          {historyLoading && <div className="admin-empty"><p style={{ color: 'white' }}>Loading...</p></div>}
 
           {historySearched && !historyLoading && (
             <div style={{ marginTop: '20px' }}>
               {historyOrders.length === 0 ? (
-                <div className="admin-empty">
-                  <p>No orders found for +91 {searchPhone}</p>
-                </div>
+                <div className="admin-empty"><p>No orders found for +91 {searchPhone}</p></div>
               ) : (
                 <>
-                  <p className="admin-result-count">
-                    {historyOrders.length} order(s) found for +91 {searchPhone}
-                  </p>
+                  <p className="admin-result-count">{historyOrders.length} order(s) found for +91 {searchPhone}</p>
                   {historyOrders.map((order, i) => (
                     <div className="admin-order-card" key={order._id}>
                       <div className="admin-order-header">
@@ -322,9 +288,7 @@ export default function AdminDashboard({ onLogout }) {
                         <span>💳 {order.payment}</span>
                       </div>
                       <div className="admin-order-items">
-                        {order.items.map((it, j) => (
-                          <p key={j}>{it.name} × {it.qty} = ₹{it.price}</p>
-                        ))}
+                        {order.items.map((it, j) => <p key={j}>{it.name} × {it.qty} = ₹{it.price}</p>)}
                       </div>
                       <p className="admin-order-date">{order.date}</p>
                     </div>
@@ -333,6 +297,183 @@ export default function AdminDashboard({ onLogout }) {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB: REPORTS */}
+      {mainTab === 'reports' && (
+        <div className="admin-dash-content" style={{ flex: 1 }}>
+
+          {/* REPORT TYPE SELECTOR */}
+          <div className="admin-form-card">
+            <h3 className="admin-form-title">Sales Reports</h3>
+            <p className="admin-form-desc">View detailed sales analytics for your cafe</p>
+            <div className="report-type-tabs">
+              {[
+                { key: 'daily', label: 'Date Wise' },
+                { key: 'monthly', label: 'Monthly' },
+                { key: 'customer', label: 'Customer Wise' },
+                { key: 'product', label: 'Product Wise' },
+              ].map(r => (
+                <button
+                  key={r.key}
+                  className={`report-type-tab ${reportType === r.key ? 'active' : ''}`}
+                  onClick={() => setReportType(r.key)}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {reportLoading && <div className="admin-empty"><p style={{ color: 'white' }}>Loading report...</p></div>}
+          {reportError && <div className="admin-alert admin-alert-error">{reportError}</div>}
+
+          {!reportLoading && reportData.length === 0 && !reportError && (
+            <div className="admin-empty"><p>No data available yet.</p></div>
+          )}
+
+          {!reportLoading && reportData.length > 0 && (
+            <>
+              {/* SUMMARY CARDS */}
+              <div className="report-summary-grid">
+                <div className="report-summary-card">
+                  <p className="report-summary-label">Total Records</p>
+                  <p className="report-summary-value">{reportData.length}</p>
+                </div>
+                <div className="report-summary-card">
+                  <p className="report-summary-label">Total Orders</p>
+                  <p className="report-summary-value">{reportData.reduce((s, d) => s + (d.orders || 0), 0)}</p>
+                </div>
+                <div className="report-summary-card">
+                  <p className="report-summary-label">Total Revenue</p>
+                  <p className="report-summary-value">₹{reportData.reduce((s, d) => s + (d.total || 0), 0)}</p>
+                </div>
+                <div className="report-summary-card">
+                  <p className="report-summary-label">Avg per Record</p>
+                  <p className="report-summary-value">₹{Math.round(reportData.reduce((s, d) => s + (d.total || 0), 0) / reportData.length)}</p>
+                </div>
+              </div>
+
+              {/* BAR CHART */}
+              <div className="admin-form-card" style={{ marginBottom: '20px' }}>
+                <h3 className="admin-form-title">
+                  {reportType === 'daily' && 'Revenue by Date'}
+                  {reportType === 'monthly' && 'Revenue by Month'}
+                  {reportType === 'customer' && 'Revenue by Customer'}
+                  {reportType === 'product' && 'Sales by Product'}
+                </h3>
+                <div className="report-chart">
+                  {reportData.slice(0, 10).map((d, i) => {
+                    const label = d.date || d.month || d.name || d.phone || 'Unknown';
+                    const value = d.total || d.qty || 0;
+                    const pct = Math.round((value / getMaxTotal()) * 100);
+                    return (
+                      <div key={i} className="report-bar-row">
+                        <p className="report-bar-label">{label}</p>
+                        <div className="report-bar-track">
+                          <div
+                            className="report-bar-fill"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <p className="report-bar-value">
+                          {reportType === 'product' ? `${d.qty} qty` : `₹${value}`}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* DATA TABLE */}
+              <div className="admin-form-card">
+                <h3 className="admin-form-title">Detailed Data</h3>
+                <div className="report-table-wrapper">
+                  <table className="report-table">
+                    <thead>
+                      <tr>
+                        {reportType === 'daily' && <><th>Date</th><th>Orders</th><th>Revenue</th></>}
+                        {reportType === 'monthly' && <><th>Month</th><th>Orders</th><th>Revenue</th></>}
+                        {reportType === 'customer' && <><th>Phone</th><th>Name</th><th>Orders</th><th>Total Spent</th></>}
+                        {reportType === 'product' && <><th>Product</th><th>Qty Sold</th><th>Revenue</th></>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportData.map((d, i) => (
+                        <tr key={i}>
+                          {reportType === 'daily' && <><td>{d.date}</td><td>{d.orders}</td><td>₹{d.total}</td></>}
+                          {reportType === 'monthly' && <><td>{d.month}</td><td>{d.orders}</td><td>₹{d.total}</td></>}
+                          {reportType === 'customer' && <><td>{d.phone}</td><td>{d.name}</td><td>{d.orders}</td><td>₹{d.total}</td></>}
+                          {reportType === 'product' && <><td>{d.name}</td><td>{d.qty}</td><td>₹{d.total}</td></>}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* TAB: FEEDBACK */}
+      {mainTab === 'feedback' && (
+        <div className="admin-dash-content" style={{ flex: 1 }}>
+          <div className="admin-form-card">
+            <h3 className="admin-form-title">Customer Feedback</h3>
+            <p className="admin-form-desc">All feedback submitted by customers</p>
+
+            {feedbacks.length > 0 && (
+              <div className="report-summary-grid" style={{ marginTop: '16px' }}>
+                <div className="report-summary-card">
+                  <p className="report-summary-label">Total Feedback</p>
+                  <p className="report-summary-value">{feedbacks.length}</p>
+                </div>
+                <div className="report-summary-card">
+                  <p className="report-summary-label">Avg Rating</p>
+                  <p className="report-summary-value">
+                    {(feedbacks.reduce((s, f) => s + f.rating, 0) / feedbacks.length).toFixed(1)} ★
+                  </p>
+                </div>
+                <div className="report-summary-card">
+                  <p className="report-summary-label">5 Star</p>
+                  <p className="report-summary-value">{feedbacks.filter(f => f.rating === 5).length}</p>
+                </div>
+                <div className="report-summary-card">
+                  <p className="report-summary-label">Low Ratings</p>
+                  <p className="report-summary-value">{feedbacks.filter(f => f.rating <= 2).length}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {feedbackLoading && <div className="admin-empty"><p style={{ color: 'white' }}>Loading feedback...</p></div>}
+
+          {!feedbackLoading && feedbacks.length === 0 && (
+            <div className="admin-empty"><p>No feedback yet.</p></div>
+          )}
+
+          {!feedbackLoading && feedbacks.map((fb, i) => (
+            <div className="admin-order-card" key={fb._id || i}>
+              <div className="admin-order-header">
+                <div>
+                  <h3 style={{ color: 'white', fontSize: '15px' }}>{fb.name || 'Anonymous'}</h3>
+                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>+91 {fb.phone}</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div>{renderStars(fb.rating)}</div>
+                  <p style={{ color: '#ffb347', fontSize: '13px', fontWeight: '600' }}>{fb.rating}/5</p>
+                </div>
+              </div>
+              {fb.comment && (
+                <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px', marginTop: '8px', fontStyle: 'italic' }}>
+                  "{fb.comment}"
+                </p>
+              )}
+              <p className="admin-order-date">{fb.date}</p>
+            </div>
+          ))}
         </div>
       )}
 
@@ -356,9 +497,7 @@ export default function AdminDashboard({ onLogout }) {
             </div>
           </div>
         </div>
-        <div className="footer-bottom">
-          © 2026 Cafe Coffee Break | All Rights Reserved
-        </div>
+        <div className="footer-bottom">© 2026 Cafe Coffee Break | All Rights Reserved</div>
       </footer>
 
     </div>

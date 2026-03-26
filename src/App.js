@@ -20,6 +20,7 @@ import MenuPage from './pages/MenuPage';
 import CartPage from './pages/CartPage';
 import BillPage from './pages/BillPage';
 import HistoryPage from './pages/HistoryPage';
+import FeedbackPage from './pages/FeedbackPage';
 
 export default function App() {
 
@@ -27,6 +28,7 @@ export default function App() {
   const [page, setPage] = useState('homePage');
   const [cart, setCart] = useState({});
   const [userPhone, setUserPhone] = useState('');
+  const [userName, setUserName] = useState('');
   const [menuItems, setMenuItems] = useState([]);
   const [showSplash, setShowSplash] = useState(false);
 
@@ -70,12 +72,10 @@ export default function App() {
 
   return (
     <>
-      {/* VIDEO BACKGROUND */}
       <video autoPlay muted loop playsInline className="bg-video">
         <source src={bgVideo} type="video/mp4" />
       </video>
 
-      {/* SPLASH SCREEN */}
       {showSplash && (
         <SplashScreen
           onComplete={() => {
@@ -85,7 +85,6 @@ export default function App() {
         />
       )}
 
-      {/* WELCOME */}
       {screen === 'welcome' && !showSplash && (
         <WelcomePage
           onEnter={handleUserEnter}
@@ -93,7 +92,6 @@ export default function App() {
         />
       )}
 
-      {/* ADMIN LOGIN */}
       {screen === 'adminLogin' && (
         <AdminLogin
           onLogin={() => setScreen('admin')}
@@ -101,14 +99,12 @@ export default function App() {
         />
       )}
 
-      {/* ADMIN DASHBOARD */}
       {screen === 'admin' && (
         <AdminDashboard
           onLogout={() => setScreen('welcome')}
         />
       )}
 
-      {/* USER APP */}
       {screen === 'app' && !showSplash && (
         <>
           <Header showPage={setPage} />
@@ -126,7 +122,6 @@ export default function App() {
                   <img src={coldcoffeeImg} className="choco right-choco" alt="cold coffee" />
                 </section>
 
-                {/* OUR MENU HEADING */}
                 <div className="our-menu-heading">
                   <h2>Our Menu</h2>
                 </div>
@@ -142,10 +137,7 @@ export default function App() {
             )}
 
             {page === 'cartPage' && (
-              <CartPage
-                cart={cart}
-                menuItems={menuItems}
-              />
+              <CartPage cart={cart} menuItems={menuItems} />
             )}
 
             {page === 'billPage' && (
@@ -155,6 +147,7 @@ export default function App() {
                 clearCart={clearCart}
                 showPage={setPage}
                 userPhone={userPhone}
+                onNameSet={setUserName}
               />
             )}
 
@@ -162,9 +155,15 @@ export default function App() {
               <HistoryPage userPhone={userPhone} />
             )}
 
+            {page === 'feedbackPage' && (
+              <FeedbackPage
+                userPhone={userPhone}
+                userName={userName}
+              />
+            )}
+
           </div>
 
-          {/* HIDE CART BAR ON BILL PAGE */}
           {page !== 'billPage' && (
             <CartBar
               totalItems={totalItems}
