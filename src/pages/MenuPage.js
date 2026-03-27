@@ -7,11 +7,17 @@ import coldcoffeeImg from '../assets/images/coldcoffee.png';
 import teaImg from '../assets/images/tea.png';
 import greenteaImg from '../assets/images/greentea.png';
 
+import CarouselBanner from '../components/CarouselBanner';
+import AnnouncementBar from '../components/AnnouncementBar';
+import HappyHourBanner from '../components/HappyHourBanner';
+import MostOrdered from '../components/MostOrdered';
+
 const CATEGORIES = ['Hot Drinks', 'Cold Drinks', 'Snacks', 'Meals'];
 
 export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [discount, setDiscount] = useState(0);
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -29,6 +35,11 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const getDiscountedPrice = (price) => {
+    if (!discount || discount <= 0) return null;
+    return Math.round(price * (1 - discount / 100));
+  };
+
   if (loading) {
     return (
       <section className="menu-section page active">
@@ -40,19 +51,8 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
     );
   }
 
-  if (items.length === 0) {
-    return (
-      <section className="menu-section page active">
-        <div className="menu-loading">
-          <span>☕</span>
-          <p>No menu items yet. Admin needs to add items.</p>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className="menu-section page active" style={{ position: 'relative', overflow: 'hidden' }}>
+    <section className="menu-section page active" style={{ position: 'relative' }}>
 
       {/* FLOATING IMAGES */}
       <img src={coffeeImg}     className="menu-float menu-float-1" alt="coffee" />
@@ -60,37 +60,82 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
       <img src={teaImg}        className="menu-float menu-float-3" alt="tea" />
       <img src={greenteaImg}   className="menu-float menu-float-4" alt="green tea" />
 
+      {/* CAROUSEL BANNER */}
+      <div className="menu-top-section">
+        <CarouselBanner />
+      </div>
+
+      {/* ANNOUNCEMENT BAR */}
+      <div className="menu-top-section">
+        <AnnouncementBar />
+      </div>
+
+      {/* HAPPY HOUR BANNER */}
+      <div className="menu-top-section">
+        <HappyHourBanner onOfferChange={setDiscount} />
+      </div>
+
+      {/* MOST ORDERED */}
+      {items.length > 0 && (
+        <MostOrdered
+          cart={cart}
+          increase={increase}
+          decrease={decrease}
+          discount={discount}
+        />
+      )}
+
       {/* MENU ITEMS */}
-      {CATEGORIES.map(category => {
-        const categoryItems = items.filter(item => item.category === category);
-        if (categoryItems.length === 0) return null;
-        return (
-          <div key={category} style={{ position: 'relative', zIndex: 1 }}>
-            <h2 className="section-title">{category}</h2>
-            <div className="menu-list">
-              {categoryItems.map(item => (
-                <div className="menu-row" key={item._id}>
-                  <img
-                    src={getImageUrl(item.image)}
-                    className="row-img"
-                    alt={item.name}
-                    onError={e => e.target.style.display = 'none'}
-                  />
-                  <div className="row-info">
-                    <b>{item.name}</b>
-                    <p>₹{item.price}</p>
-                  </div>
-                  <div className="controls">
-                    <button onClick={() => decrease(item._id)}>-</button>
-                    <span>{cart[item._id] || 0}</span>
-                    <button onClick={() => increase(item._id)}>+</button>
-                  </div>
-                </div>
-              ))}
+      {items.length === 0 ? (
+        <div className="menu-loading">
+          <span>☕</span>
+          <p>No menu items yet. Admin needs to add items.</p>
+        </div>
+      ) : (
+        CATEGORIES.map(category => {
+          const categoryItems = items.filter(item => item.category === category);
+          if (categoryItems.length === 0) return null;
+          return (
+            <div key={category} style={{ position: 'relative', zIndex: 1 }}>
+              <h2 className="section-title">{category}</h2>
+              <div className="menu-list">
+                {categoryItems.map(item => {
+                  const discountedPrice = getDiscountedPrice(item.price);
+                  return (
+                    <div className="menu-row" key={item._id}>
+                      <img
+                        src={getImageUrl(item.image)}
+                        className="row-img"
+                        alt={item.name}
+                        onError={e => e.target.style.display = 'none'}
+                      />
+                      <div className="row-info">
+                        <b>{item.name}</b>
+                        <div className="menu-price-row">
+                          {discountedPrice ? (
+                            <>
+                              <span className="menu-price-original">₹{item.price}</span>
+                              <span className="menu-price-discounted">₹{discountedPrice}</span>
+                              <span className="menu-price-badge">{discount}% OFF</span>
+                            </>
+                          ) : (
+                            <span className="menu-price-normal">₹{item.price}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="controls">
+                        <button onClick={() => decrease(item._id)}>-</button>
+                        <span>{cart[item._id] || 0}</span>
+                        <button onClick={() => increase(item._id)}>+</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })
+      )}
     </section>
   );
 }

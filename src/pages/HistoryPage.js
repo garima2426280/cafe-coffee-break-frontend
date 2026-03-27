@@ -1,31 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 
-export default function HistoryPage() {
+export default function HistoryPage({ userPhone }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchOrders = async () => {
+      if (!userPhone) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
       try {
-        const res = await axios.get('/orders');
-        const sorted = res.data.sort((a, b) => new Date(b.date) - new Date(a.date));
-        setOrders(sorted);
+        const phone = userPhone.toString().trim();
+        const res = await axios.get(`/users/history/${phone}`);
+        setOrders(res.data);
       } catch (err) {
-        console.error(err);
-        alert('Failed to load history. Is your backend running?');
+        console.error('History fetch error:', err);
       } finally {
         setLoading(false);
       }
     };
     fetchOrders();
-  }, []);
+  }, [userPhone]);
 
   if (loading) {
     return (
       <section className="container page active">
         <h2 className="section-title">Order History</h2>
-        <p style={{ color: 'white' }}>Loading orders...</p>
+        <div className="menu-loading">
+          <span>☕</span>
+          <p>Loading your orders...</p>
+        </div>
       </section>
     );
   }
@@ -33,37 +40,47 @@ export default function HistoryPage() {
   return (
     <section className="container page active">
       <h2 className="section-title">Order History</h2>
-      <div>
-        {orders.length === 0 ? (
-          <p style={{ color: 'white' }}>No Orders Yet</p>
-        ) : (
-          orders.map((order, i) => (
-            <div
-              className="menu-row"
-              key={order._id}
-              style={{ flexDirection: 'column', alignItems: 'flex-start', marginBottom: '16px' }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                <h3 style={{ color: 'white' }}>Order {orders.length - i}</h3>
-                <p style={{ color: '#ffb347', fontWeight: '600' }}>₹{order.total}</p>
+      <p style={{ color: '#ffb347', fontSize: '13px', marginBottom: '16px' }}>
+        📱 +91 {userPhone}
+      </p>
+
+      {orders.length === 0 ? (
+        <div className="history-empty">
+          <span>🛍️</span>
+          <p>No orders yet!</p>
+          <p style={{ fontSize: '13px', opacity: 0.5 }}>Your orders will appear here after you place one.</p>
+        </div>
+      ) : (
+        orders.map((order, i) => (
+          <div className="history-card" key={order._id}>
+            <div className="history-card-header">
+              <div>
+                <h3 className="history-order-num">Order #{orders.length - i}</h3>
+                <p className="history-order-date">{order.date}</p>
               </div>
-              <p style={{ color: 'white', opacity: 0.8 }}>Name: {order.name}</p>
-              <p style={{ color: 'white', opacity: 0.8 }}>Table: {order.table}</p>
-              <p style={{ color: 'white', opacity: 0.8 }}>Payment: {order.payment}</p>
-              <div style={{ marginTop: '8px', width: '100%' }}>
+              <div className="history-order-right">
+                <span className="history-total">₹{order.total}</span>
+                <span className="history-payment">{order.payment}</span>
+              </div>
+            </div>
+            <div className="history-card-body">
+              <div className="history-meta">
+                <span>👤 {order.name}</span>
+                <span>🪑 Table {order.table}</span>
+              </div>
+              <div className="history-items">
                 {order.items.map((it, j) => (
-                  <p key={j} style={{ color: 'white', opacity: 0.7, fontSize: '13px' }}>
-                    {it.name} x {it.qty} = ₹{it.price}
-                  </p>
+                  <div key={j} className="history-item-row">
+                    <span className="history-item-name">{it.name}</span>
+                    <span className="history-item-qty">×{it.qty}</span>
+                    <span className="history-item-price">₹{it.price}</span>
+                  </div>
                 ))}
               </div>
-              <p style={{ color: 'white', opacity: 0.5, fontSize: '12px', marginTop: '6px' }}>
-                {order.date}
-              </p>
             </div>
-          ))
-        )}
-      </div>
+          </div>
+        ))
+      )}
     </section>
   );
 }

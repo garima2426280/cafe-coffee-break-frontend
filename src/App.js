@@ -39,9 +39,7 @@ export default function App() {
     try {
       const res = await axios.get('/menu');
       setMenuItems(res.data);
-    } catch (err) {
-      console.error('Failed to fetch menu:', err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const increase = (id) => setCart(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
@@ -63,6 +61,14 @@ export default function App() {
   const handleUserEnter = (phone) => {
     setUserPhone(phone);
     setShowSplash(true);
+  };
+
+  const handleLogout = () => {
+    setUserPhone('');
+    setUserName('');
+    setCart({});
+    setScreen('welcome');
+    setPage('homePage');
   };
 
   return (
@@ -89,7 +95,11 @@ export default function App() {
 
       {screen === 'app' && !showSplash && (
         <>
-          <Header showPage={setPage} />
+          <Header
+            showPage={setPage}
+            userPhone={userPhone}
+            onLogout={handleLogout}
+          />
 
           <div className="page-wrapper">
 
