@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { getImageUrl } from '../api/imageUrl';
+import AnalyticsDashboard from './AnalyticsDashboard';
 
 const CATEGORIES = ['Hot Drinks', 'Cold Drinks', 'Snacks', 'Meals'];
-
-const PIE_COLORS = ['#ff7b00', '#ffb347', '#e06800', '#ffd280', '#ff9500', '#ffca6e', '#cc5f00', '#ffe0a0'];
+const PIE_COLORS = ['#ff7b00','#ffb347','#e06800','#ffd280','#ff9500','#ffca6e','#cc5f00','#ffe0a0'];
 
 function PieChart({ data, valueKey, labelKey }) {
   if (!data || data.length === 0) return null;
-
   const total = data.reduce((s, d) => s + (d[valueKey] || 0), 0);
   if (total === 0) return null;
-
   let cumulative = 0;
   const slices = data.slice(0, 8).map((d, i) => {
     const value = d[valueKey] || 0;
@@ -19,22 +17,18 @@ function PieChart({ data, valueKey, labelKey }) {
     const startAngle = cumulative * 2 * Math.PI;
     cumulative += pct;
     const endAngle = cumulative * 2 * Math.PI;
-
     const x1 = 100 + 80 * Math.cos(startAngle - Math.PI / 2);
     const y1 = 100 + 80 * Math.sin(startAngle - Math.PI / 2);
     const x2 = 100 + 80 * Math.cos(endAngle - Math.PI / 2);
     const y2 = 100 + 80 * Math.sin(endAngle - Math.PI / 2);
     const largeArc = pct > 0.5 ? 1 : 0;
-
     return {
       path: `M 100 100 L ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2} Z`,
       color: PIE_COLORS[i % PIE_COLORS.length],
-      label: d[labelKey],
-      value,
+      label: d[labelKey], value,
       pct: Math.round(pct * 100),
     };
   });
-
   return (
     <div className="pie-wrapper">
       <svg viewBox="0 0 200 200" className="pie-svg">
@@ -85,6 +79,20 @@ export default function AdminDashboard({ onLogout }) {
   const [feedbacks, setFeedbacks] = useState([]);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
 
+  // Ads state
+  const [ads, setAds] = useState([]);
+  const [adText, setAdText] = useState('');
+  const [adLoading, setAdLoading] = useState(false);
+
+  // Offers state
+  const [offers, setOffers] = useState([]);
+  const [offerTitle, setOfferTitle] = useState('');
+  const [offerDesc, setOfferDesc] = useState('');
+  const [offerDiscount, setOfferDiscount] = useState('');
+  const [offerStart, setOfferStart] = useState('');
+  const [offerEnd, setOfferEnd] = useState('');
+  const [offerLoading, setOfferLoading] = useState(false);
+
   const token = localStorage.getItem('adminToken');
 
   useEffect(() => { fetchItems(); }, []);
@@ -122,17 +130,17 @@ export default function AdminDashboard({ onLogout }) {
       setName(''); setPrice(''); setImage(null); setPreview(null);
       fetchItems();
     } catch (err) {
-      setError('Failed to add item. Please try again.');
+      setError('Failed to add item.');
     } finally { setLoading(false); }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this item?')) return;
+    if (!window.confirm('Delete this item?')) return;
     try {
       await axios.delete(`/menu/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-      setSuccess('Item deleted successfully!');
+      setSuccess('Item deleted!');
       fetchItems();
-    } catch (err) { setError('Failed to delete item.'); }
+    } catch (err) { setError('Failed to delete.'); }
   };
 
   const searchUserHistory = async () => {
@@ -173,9 +181,88 @@ export default function AdminDashboard({ onLogout }) {
     finally { setFeedbackLoading(false); }
   };
 
+  const fetchAds = async () => {
+    try {
+      const res = await axios.get('/ads/all');
+      setAds(res.data);
+    } catch (err) { console.error(err); }
+  };
+
+  const fetchOffers = async () => {
+    try {
+      const res = await axios.get('/offers/all');
+      setOffers(res.data);
+    } catch (err) { console.error(err); }
+  };
+
+  const addAd = async () => {
+    if (!adText) return;
+    setAdLoading(true);
+    try {
+      await axios.post('/ads', { text: adText }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAdText('');
+      fetchAds();
+    } catch (err) { console.error(err); }
+    finally { setAdLoading(false); }
+  };
+
+  const toggleAd = async (id, active) => {
+    try {
+      await axios.put(`/ads/${id}`, { active: !active }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchAds();
+    } catch (err) { console.error(err); }
+  };
+
+  const deleteAd = async (id) => {
+    try {
+      await axios.delete(`/ads/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      fetchAds();
+    } catch (err) { console.error(err); }
+  };
+
+  const addOffer = async () => {
+    if (!offerTitle || !offerDiscount || !offerStart || !offerEnd) return;
+    setOfferLoading(true);
+    try {
+      await axios.post('/offers', {
+        title: offerTitle,
+        description: offerDesc,
+        discount: Number(offerDiscount),
+        startTime: offerStart,
+        endTime: offerEnd,
+        active: true,
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      setOfferTitle(''); setOfferDesc(''); setOfferDiscount('');
+      setOfferStart(''); setOfferEnd('');
+      fetchOffers();
+    } catch (err) { console.error(err); }
+    finally { setOfferLoading(false); }
+  };
+
+  const toggleOffer = async (id, active) => {
+    try {
+      await axios.put(`/offers/${id}`, { active: !active }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchOffers();
+    } catch (err) { console.error(err); }
+  };
+
+  const deleteOffer = async (id) => {
+    try {
+      await axios.delete(`/offers/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      fetchOffers();
+    } catch (err) { console.error(err); }
+  };
+
   useEffect(() => {
     if (mainTab === 'reports') fetchReport(reportType);
     if (mainTab === 'feedback') fetchFeedbacks();
+    if (mainTab === 'ads') { fetchAds(); fetchOffers(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mainTab]);
 
@@ -189,20 +276,27 @@ export default function AdminDashboard({ onLogout }) {
     const vals = reportData.map(d => reportType === 'product' ? (d.qty || 0) : (d.total || 0));
     return Math.max(...vals, 1);
   };
-
   const getPieValueKey = () => reportType === 'product' ? 'qty' : 'total';
   const getPieLabelKey = () => {
     if (reportType === 'daily') return 'date';
     if (reportType === 'weekly') return 'week';
     if (reportType === 'monthly') return 'month';
     if (reportType === 'customer') return 'name';
-    if (reportType === 'product') return 'name';
     return 'name';
   };
 
   const renderStars = (rating) => [1,2,3,4,5].map(s => (
     <span key={s} style={{ color: s <= rating ? '#ff7b00' : 'rgba(255,255,255,0.2)', fontSize: '16px' }}>★</span>
   ));
+
+  const TABS = [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'history', label: 'User History' },
+    { key: 'reports', label: 'Reports' },
+    { key: 'analytics', label: 'Analytics' },
+    { key: 'ads', label: 'Ads & Offers' },
+    { key: 'feedback', label: 'Feedback' },
+  ];
 
   return (
     <div className="admin-dashboard-wrapper" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -219,18 +313,16 @@ export default function AdminDashboard({ onLogout }) {
         <button className="admin-logout-btn" onClick={onLogout}>Logout</button>
       </div>
 
-      {/* MAIN TABS */}
-      <div className="admin-dash-tabs">
-        {['dashboard', 'history', 'reports', 'feedback'].map(tab => (
+      {/* TABS */}
+      <div className="admin-dash-tabs" style={{ overflowX: 'auto' }}>
+        {TABS.map(tab => (
           <button
-            key={tab}
-            className={`admin-dash-tab ${mainTab === tab ? 'active' : ''}`}
-            onClick={() => setMainTab(tab)}
+            key={tab.key}
+            className={`admin-dash-tab ${mainTab === tab.key ? 'active' : ''}`}
+            onClick={() => setMainTab(tab.key)}
+            style={{ whiteSpace: 'nowrap' }}
           >
-            {tab === 'dashboard' && 'Dashboard'}
-            {tab === 'history' && 'User History'}
-            {tab === 'reports' && 'Reports'}
-            {tab === 'feedback' && 'Feedback'}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -267,7 +359,6 @@ export default function AdminDashboard({ onLogout }) {
               {loading ? 'Adding...' : '+ Add Item'}
             </button>
           </div>
-
           <div className="admin-category-tabs">
             {CATEGORIES.map(cat => (
               <button key={cat} onClick={() => setActiveCategory(cat)} className={`admin-category-tab ${activeCategory === cat ? 'active' : ''}`}>
@@ -275,7 +366,6 @@ export default function AdminDashboard({ onLogout }) {
               </button>
             ))}
           </div>
-
           <div className="menu-list">
             {filteredItems.length === 0 ? (
               <div className="admin-empty"><p>No items in this category yet.</p></div>
@@ -308,9 +398,7 @@ export default function AdminDashboard({ onLogout }) {
             </div>
             {historyError && <div className="admin-alert admin-alert-error" style={{ marginTop: '12px' }}>{historyError}</div>}
           </div>
-
           {historyLoading && <div className="admin-empty"><p style={{ color: 'white' }}>Loading...</p></div>}
-
           {historySearched && !historyLoading && (
             <div style={{ marginTop: '20px' }}>
               {historyOrders.length === 0 ? (
@@ -345,10 +433,9 @@ export default function AdminDashboard({ onLogout }) {
       {/* TAB: REPORTS */}
       {mainTab === 'reports' && (
         <div className="admin-dash-content" style={{ flex: 1 }}>
-
           <div className="admin-form-card">
             <h3 className="admin-form-title">Sales Reports</h3>
-            <p className="admin-form-desc">View detailed sales analytics for your cafe</p>
+            <p className="admin-form-desc">View detailed sales analytics</p>
             <div className="report-type-tabs">
               {[
                 { key: 'daily', label: 'Date Wise' },
@@ -372,7 +459,6 @@ export default function AdminDashboard({ onLogout }) {
 
           {!reportLoading && reportData.length > 0 && (
             <>
-              {/* SUMMARY CARDS */}
               <div className="report-summary-grid">
                 <div className="report-summary-card">
                   <p className="report-summary-label">Total Records</p>
@@ -380,20 +466,14 @@ export default function AdminDashboard({ onLogout }) {
                 </div>
                 <div className="report-summary-card">
                   <p className="report-summary-label">Total Orders</p>
-                  <p className="report-summary-value">
-                    {reportType === 'product'
-                      ? reportData.reduce((s, d) => s + (d.orders || 0), 0)
-                      : reportData.reduce((s, d) => s + (d.orders || 0), 0)}
-                  </p>
+                  <p className="report-summary-value">{reportData.reduce((s, d) => s + (d.orders || 0), 0)}</p>
                 </div>
                 <div className="report-summary-card">
                   <p className="report-summary-label">Total Revenue</p>
                   <p className="report-summary-value">₹{reportData.reduce((s, d) => s + (d.total || 0), 0)}</p>
                 </div>
                 <div className="report-summary-card">
-                  <p className="report-summary-label">
-                    {reportType === 'product' ? 'Total Qty Sold' : 'Avg Revenue'}
-                  </p>
+                  <p className="report-summary-label">{reportType === 'product' ? 'Total Qty' : 'Avg Revenue'}</p>
                   <p className="report-summary-value">
                     {reportType === 'product'
                       ? reportData.reduce((s, d) => s + (d.qty || 0), 0)
@@ -402,18 +482,9 @@ export default function AdminDashboard({ onLogout }) {
                 </div>
               </div>
 
-              {/* BAR CHART + PIE CHART */}
               <div className="report-charts-grid">
-
-                {/* BAR CHART */}
                 <div className="admin-form-card">
-                  <h3 className="admin-form-title">
-                    {reportType === 'daily' && 'Revenue by Date'}
-                    {reportType === 'weekly' && 'Revenue by Week'}
-                    {reportType === 'monthly' && 'Revenue by Month'}
-                    {reportType === 'customer' && 'Revenue by Customer'}
-                    {reportType === 'product' && 'Sales by Product'}
-                  </h3>
+                  <h3 className="admin-form-title">Bar Chart</h3>
                   <div className="report-chart">
                     {reportData.slice(0, 8).map((d, i) => {
                       const label = d.date || d.week || d.month || d.name || d.phone || 'Unknown';
@@ -425,28 +496,18 @@ export default function AdminDashboard({ onLogout }) {
                           <div className="report-bar-track">
                             <div className="report-bar-fill" style={{ width: `${pct}%` }} />
                           </div>
-                          <p className="report-bar-value">
-                            {reportType === 'product' ? `${d.qty} qty` : `₹${value}`}
-                          </p>
+                          <p className="report-bar-value">{reportType === 'product' ? `${d.qty} qty` : `₹${value}`}</p>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-
-                {/* PIE CHART */}
                 <div className="admin-form-card">
                   <h3 className="admin-form-title">Distribution</h3>
-                  <PieChart
-                    data={reportData.slice(0, 8)}
-                    valueKey={getPieValueKey()}
-                    labelKey={getPieLabelKey()}
-                  />
+                  <PieChart data={reportData.slice(0, 8)} valueKey={getPieValueKey()} labelKey={getPieLabelKey()} />
                 </div>
-
               </div>
 
-              {/* DATA TABLE */}
               <div className="admin-form-card">
                 <h3 className="admin-form-title">Detailed Data</h3>
                 <div className="report-table-wrapper">
@@ -456,8 +517,8 @@ export default function AdminDashboard({ onLogout }) {
                         {reportType === 'daily' && <><th>Date</th><th>Orders</th><th>Revenue</th></>}
                         {reportType === 'weekly' && <><th>Week</th><th>Orders</th><th>Revenue</th></>}
                         {reportType === 'monthly' && <><th>Month</th><th>Orders</th><th>Revenue</th></>}
-                        {reportType === 'customer' && <><th>Phone</th><th>Name</th><th>Orders</th><th>Total Spent</th></>}
-                        {reportType === 'product' && <><th>Product</th><th>Qty Sold</th><th>Orders</th><th>Revenue</th></>}
+                        {reportType === 'customer' && <><th>Phone</th><th>Name</th><th>Orders</th><th>Total</th></>}
+                        {reportType === 'product' && <><th>Product</th><th>Qty</th><th>Orders</th><th>Revenue</th></>}
                       </tr>
                     </thead>
                     <tbody>
@@ -475,6 +536,130 @@ export default function AdminDashboard({ onLogout }) {
                 </div>
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {/* TAB: ANALYTICS */}
+      {mainTab === 'analytics' && (
+        <div style={{ flex: 1 }}>
+          <AnalyticsDashboard />
+        </div>
+      )}
+
+      {/* TAB: ADS & OFFERS */}
+      {mainTab === 'ads' && (
+        <div className="admin-dash-content" style={{ flex: 1 }}>
+
+          {/* ADS SECTION */}
+          <div className="admin-form-card">
+            <h3 className="admin-form-title">Announcement Banners</h3>
+            <p className="admin-form-desc">These appear as rotating banners on the menu page</p>
+            <div className="admin-search-row">
+              <input
+                type="text"
+                className="admin-field-input"
+                placeholder="e.g. ☕ Fresh Brewed Happiness!"
+                value={adText}
+                onChange={e => setAdText(e.target.value)}
+                style={{ flex: 1, marginBottom: 0 }}
+              />
+              <button className="admin-add-btn" onClick={addAd} disabled={adLoading} style={{ width: 'auto', padding: '11px 24px' }}>
+                {adLoading ? 'Adding...' : '+ Add'}
+              </button>
+            </div>
+          </div>
+
+          {ads.length === 0 ? (
+            <div className="admin-empty"><p>No ads yet. Add your first banner!</p></div>
+          ) : (
+            ads.map(ad => (
+              <div className="admin-order-card" key={ad._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p style={{ color: 'white', flex: 1, fontSize: '14px' }}>{ad.text}</p>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
+                  <button
+                    onClick={() => toggleAd(ad._id, ad.active)}
+                    style={{
+                      background: ad.active ? 'rgba(46,164,79,0.2)' : 'rgba(255,255,255,0.1)',
+                      color: ad.active ? '#2ea44f' : 'rgba(255,255,255,0.5)',
+                      border: `1px solid ${ad.active ? '#2ea44f' : 'rgba(255,255,255,0.2)'}`,
+                      padding: '6px 14px', borderRadius: '8px', cursor: 'pointer',
+                      fontFamily: 'Poppins, sans-serif', fontSize: '12px',
+                    }}
+                  >
+                    {ad.active ? 'Active' : 'Inactive'}
+                  </button>
+                  <button onClick={() => deleteAd(ad._id)} className="admin-delete-btn" style={{ padding: '6px 14px' }}>Delete</button>
+                </div>
+              </div>
+            ))
+          )}
+
+          {/* OFFERS SECTION */}
+          <div className="admin-form-card" style={{ marginTop: '24px' }}>
+            <h3 className="admin-form-title">Happy Hour Offers</h3>
+            <p className="admin-form-desc">Create time-based discount offers for customers</p>
+            <div className="admin-form-grid">
+              <div className="admin-form-field">
+                <label className="admin-field-label">Offer Title *</label>
+                <input type="text" className="admin-field-input" placeholder="e.g. Happy Hour" value={offerTitle} onChange={e => setOfferTitle(e.target.value)} />
+              </div>
+              <div className="admin-form-field">
+                <label className="admin-field-label">Discount % *</label>
+                <input type="number" className="admin-field-input" placeholder="e.g. 50" value={offerDiscount} onChange={e => setOfferDiscount(e.target.value)} />
+              </div>
+            </div>
+            <div className="admin-form-field">
+              <label className="admin-field-label">Description</label>
+              <input type="text" className="admin-field-input" placeholder="e.g. Flat 50% off on all drinks" value={offerDesc} onChange={e => setOfferDesc(e.target.value)} />
+            </div>
+            <div className="admin-form-grid">
+              <div className="admin-form-field">
+                <label className="admin-field-label">Start Time *</label>
+                <input type="time" className="admin-field-input" value={offerStart} onChange={e => setOfferStart(e.target.value)} />
+              </div>
+              <div className="admin-form-field">
+                <label className="admin-field-label">End Time *</label>
+                <input type="time" className="admin-field-input" value={offerEnd} onChange={e => setOfferEnd(e.target.value)} />
+              </div>
+            </div>
+            <button className="admin-add-btn" onClick={addOffer} disabled={offerLoading}>
+              {offerLoading ? 'Adding...' : '+ Add Offer'}
+            </button>
+          </div>
+
+          {offers.length === 0 ? (
+            <div className="admin-empty"><p>No offers yet.</p></div>
+          ) : (
+            offers.map(offer => (
+              <div className="admin-order-card" key={offer._id}>
+                <div className="admin-order-header">
+                  <div>
+                    <h3 style={{ color: 'white', fontSize: '15px' }}>{offer.title}</h3>
+                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>{offer.description}</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ color: '#ff7b00', fontWeight: '700', fontSize: '20px' }}>{offer.discount}% OFF</p>
+                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>{offer.startTime} – {offer.endTime}</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                  <button
+                    onClick={() => toggleOffer(offer._id, offer.active)}
+                    style={{
+                      background: offer.active ? 'rgba(46,164,79,0.2)' : 'rgba(255,255,255,0.1)',
+                      color: offer.active ? '#2ea44f' : 'rgba(255,255,255,0.5)',
+                      border: `1px solid ${offer.active ? '#2ea44f' : 'rgba(255,255,255,0.2)'}`,
+                      padding: '6px 14px', borderRadius: '8px', cursor: 'pointer',
+                      fontFamily: 'Poppins, sans-serif', fontSize: '12px',
+                    }}
+                  >
+                    {offer.active ? '✓ Active' : 'Inactive'}
+                  </button>
+                  <button onClick={() => deleteOffer(offer._id)} className="admin-delete-btn" style={{ padding: '6px 14px' }}>Delete</button>
+                </div>
+              </div>
+            ))
           )}
         </div>
       )}
@@ -506,10 +691,8 @@ export default function AdminDashboard({ onLogout }) {
               </div>
             )}
           </div>
-
           {feedbackLoading && <div className="admin-empty"><p style={{ color: 'white' }}>Loading feedback...</p></div>}
           {!feedbackLoading && feedbacks.length === 0 && <div className="admin-empty"><p>No feedback yet.</p></div>}
-
           {!feedbackLoading && feedbacks.map((fb, i) => (
             <div className="admin-order-card" key={fb._id || i}>
               <div className="admin-order-header">
@@ -555,7 +738,6 @@ export default function AdminDashboard({ onLogout }) {
         </div>
         <div className="footer-bottom">© 2026 Cafe Coffee Break | All Rights Reserved</div>
       </footer>
-
     </div>
   );
 }

@@ -21,6 +21,7 @@ import CartPage from './pages/CartPage';
 import BillPage from './pages/BillPage';
 import HistoryPage from './pages/HistoryPage';
 import FeedbackPage from './pages/FeedbackPage';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
 
 export default function App() {
 
@@ -32,9 +33,7 @@ export default function App() {
   const [menuItems, setMenuItems] = useState([]);
   const [showSplash, setShowSplash] = useState(false);
 
-  useEffect(() => {
-    fetchMenu();
-  }, []);
+  useEffect(() => { fetchMenu(); }, []);
 
   const fetchMenu = async () => {
     try {
@@ -45,17 +44,13 @@ export default function App() {
     }
   };
 
-  const increase = (id) => {
-    setCart(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
-  };
+  const increase = (id) => setCart(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
 
-  const decrease = (id) => {
-    setCart(prev => {
-      const current = prev[id] || 0;
-      if (current <= 0) return prev;
-      return { ...prev, [id]: current - 1 };
-    });
-  };
+  const decrease = (id) => setCart(prev => {
+    const current = prev[id] || 0;
+    if (current <= 0) return prev;
+    return { ...prev, [id]: current - 1 };
+  });
 
   const clearCart = () => setCart({});
 
@@ -77,32 +72,19 @@ export default function App() {
       </video>
 
       {showSplash && (
-        <SplashScreen
-          onComplete={() => {
-            setShowSplash(false);
-            setScreen('app');
-          }}
-        />
+        <SplashScreen onComplete={() => { setShowSplash(false); setScreen('app'); }} />
       )}
 
       {screen === 'welcome' && !showSplash && (
-        <WelcomePage
-          onEnter={handleUserEnter}
-          showAdminLogin={() => setScreen('adminLogin')}
-        />
+        <WelcomePage onEnter={handleUserEnter} showAdminLogin={() => setScreen('adminLogin')} />
       )}
 
       {screen === 'adminLogin' && (
-        <AdminLogin
-          onLogin={() => setScreen('admin')}
-          onBack={() => setScreen('welcome')}
-        />
+        <AdminLogin onLogin={() => setScreen('admin')} onBack={() => setScreen('welcome')} />
       )}
 
       {screen === 'admin' && (
-        <AdminDashboard
-          onLogout={() => setScreen('welcome')}
-        />
+        <AdminDashboard onLogout={() => setScreen('welcome')} />
       )}
 
       {screen === 'app' && !showSplash && (
@@ -121,11 +103,7 @@ export default function App() {
                   <img src={coffeeImg} className="choco left-choco" alt="coffee" />
                   <img src={coldcoffeeImg} className="choco right-choco" alt="cold coffee" />
                 </section>
-
-                <div className="our-menu-heading">
-                  <h2>Our Menu</h2>
-                </div>
-
+                <div className="our-menu-heading"><h2>Our Menu</h2></div>
                 <MenuPage
                   cart={cart}
                   increase={increase}
@@ -136,9 +114,7 @@ export default function App() {
               </>
             )}
 
-            {page === 'cartPage' && (
-              <CartPage cart={cart} menuItems={menuItems} />
-            )}
+            {page === 'cartPage' && <CartPage cart={cart} menuItems={menuItems} />}
 
             {page === 'billPage' && (
               <BillPage
@@ -151,25 +127,16 @@ export default function App() {
               />
             )}
 
-            {page === 'historyPage' && (
-              <HistoryPage userPhone={userPhone} />
-            )}
+            {page === 'historyPage' && <HistoryPage userPhone={userPhone} />}
 
-            {page === 'feedbackPage' && (
-              <FeedbackPage
-                userPhone={userPhone}
-                userName={userName}
-              />
-            )}
+            {page === 'feedbackPage' && <FeedbackPage userPhone={userPhone} userName={userName} />}
+
+            {page === 'analyticsPage' && <AnalyticsDashboard />}
 
           </div>
 
           {page !== 'billPage' && (
-            <CartBar
-              totalItems={totalItems}
-              totalPrice={totalPrice}
-              goToBill={() => setPage('billPage')}
-            />
+            <CartBar totalItems={totalItems} totalPrice={totalPrice} goToBill={() => setPage('billPage')} />
           )}
 
           <BottomNav page={page} showPage={setPage} />
