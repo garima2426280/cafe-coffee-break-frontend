@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { getImageUrl } from '../api/imageUrl';
+import { useOffer } from '../context/OfferContext';
 
 import coffeeImg from '../assets/images/coffee.png';
 import coldcoffeeImg from '../assets/images/coldcoffee.png';
@@ -17,7 +18,7 @@ const CATEGORIES = ['Hot Drinks', 'Cold Drinks', 'Snacks', 'Meals'];
 export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [discount, setDiscount] = useState(0);
+  const { isActive, discount, getDiscountedPrice, getSavings, urgency } = useOffer();
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -35,18 +36,10 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getDiscountedPrice = (price) => {
-    if (!discount || discount <= 0) return null;
-    return Math.round(price * (1 - discount / 100));
-  };
-
   if (loading) {
     return (
       <section className="menu-section page active">
-        <div className="menu-loading">
-          <span>☕</span>
-          <p>Loading menu...</p>
-        </div>
+        <div className="menu-loading"><span>☕</span><p>Loading menu...</p></div>
       </section>
     );
   }
@@ -54,43 +47,21 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
   return (
     <section className="menu-section page active" style={{ position: 'relative' }}>
 
-      {/* FLOATING IMAGES */}
       <img src={coffeeImg}     className="menu-float menu-float-1" alt="coffee" />
       <img src={coldcoffeeImg} className="menu-float menu-float-2" alt="cold coffee" />
       <img src={teaImg}        className="menu-float menu-float-3" alt="tea" />
       <img src={greenteaImg}   className="menu-float menu-float-4" alt="green tea" />
 
-      {/* CAROUSEL BANNER */}
-      <div className="menu-top-section">
-        <CarouselBanner />
-      </div>
+      <div className="menu-top-section"><CarouselBanner /></div>
+      <div className="menu-top-section"><AnnouncementBar /></div>
+      <div className="menu-top-section"><HappyHourBanner /></div>
 
-      {/* ANNOUNCEMENT BAR */}
-      <div className="menu-top-section">
-        <AnnouncementBar />
-      </div>
-
-      {/* HAPPY HOUR BANNER */}
-      <div className="menu-top-section">
-        <HappyHourBanner onOfferChange={setDiscount} />
-      </div>
-
-      {/* MOST ORDERED */}
       {items.length > 0 && (
-        <MostOrdered
-          cart={cart}
-          increase={increase}
-          decrease={decrease}
-          discount={discount}
-        />
+        <MostOrdered cart={cart} increase={increase} decrease={decrease} />
       )}
 
-      {/* MENU ITEMS */}
       {items.length === 0 ? (
-        <div className="menu-loading">
-          <span>☕</span>
-          <p>No menu items yet. Admin needs to add items.</p>
-        </div>
+        <div className="menu-loading"><span>☕</span><p>No menu items yet.</p></div>
       ) : (
         CATEGORIES.map(category => {
           const categoryItems = items.filter(item => item.category === category);
@@ -101,8 +72,13 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
               <div className="menu-list">
                 {categoryItems.map(item => {
                   const discountedPrice = getDiscountedPrice(item.price);
+                  const savings = getSavings(item.price);
+                  const hasDiscount = isActive && discount > 0;
                   return (
-                    <div className="menu-row" key={item._id}>
+                    <div
+                      className={`menu-row ${hasDiscount ? 'menu-row-offer' : ''} ${urgency && hasDiscount ? 'menu-row-urgency' : ''}`}
+                      key={item._id}
+                    >
                       <img
                         src={getImageUrl(item.image)}
                         className="row-img"
@@ -112,7 +88,7 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
                       <div className="row-info">
                         <b>{item.name}</b>
                         <div className="menu-price-row">
-                          {discountedPrice ? (
+                          {hasDiscount ? (
                             <>
                               <span className="menu-price-original">₹{item.price}</span>
                               <span className="menu-price-discounted">₹{discountedPrice}</span>
@@ -122,6 +98,9 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
                             <span className="menu-price-normal">₹{item.price}</span>
                           )}
                         </div>
+                        {hasDiscount && savings > 0 && (
+                          <p className="menu-savings">You save ₹{savings}</p>
+                        )}
                       </div>
                       <div className="controls">
                         <button onClick={() => decrease(item._id)}>-</button>

@@ -23,8 +23,9 @@ import HistoryPage from './pages/HistoryPage';
 import FeedbackPage from './pages/FeedbackPage';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 
-export default function App() {
+import { useOffer } from './context/OfferContext';
 
+export default function App() {
   const [screen, setScreen] = useState('welcome');
   const [page, setPage] = useState('homePage');
   const [cart, setCart] = useState({});
@@ -32,6 +33,7 @@ export default function App() {
   const [userName, setUserName] = useState('');
   const [menuItems, setMenuItems] = useState([]);
   const [showSplash, setShowSplash] = useState(false);
+  const { getDiscountedPrice } = useOffer();
 
   useEffect(() => { fetchMenu(); }, []);
 
@@ -45,17 +47,19 @@ export default function App() {
   const increase = (id) => setCart(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
 
   const decrease = (id) => setCart(prev => {
-    const current = prev[id] || 0;
-    if (current <= 0) return prev;
-    return { ...prev, [id]: current - 1 };
+    const curr = prev[id] || 0;
+    if (curr <= 0) return prev;
+    return { ...prev, [id]: curr - 1 };
   });
 
   const clearCart = () => setCart({});
 
-  const totalItems = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+  const totalItems = Object.values(cart).reduce((s, q) => s + q, 0);
+
   const totalPrice = Object.entries(cart).reduce((sum, [id, qty]) => {
     const item = menuItems.find(m => m._id === id);
-    return sum + qty * (item ? item.price : 0);
+    if (!item) return sum;
+    return sum + qty * getDiscountedPrice(item.price);
   }, 0);
 
   const handleUserEnter = (phone) => {
@@ -95,14 +99,9 @@ export default function App() {
 
       {screen === 'app' && !showSplash && (
         <>
-          <Header
-            showPage={setPage}
-            userPhone={userPhone}
-            onLogout={handleLogout}
-          />
+          <Header showPage={setPage} userPhone={userPhone} onLogout={handleLogout} />
 
           <div className="page-wrapper">
-
             {page === 'homePage' && (
               <>
                 <section className="hero">
@@ -123,9 +122,7 @@ export default function App() {
                 />
               </>
             )}
-
             {page === 'cartPage' && <CartPage cart={cart} menuItems={menuItems} />}
-
             {page === 'billPage' && (
               <BillPage
                 cart={cart}
@@ -136,19 +133,14 @@ export default function App() {
                 onNameSet={setUserName}
               />
             )}
-
             {page === 'historyPage' && <HistoryPage userPhone={userPhone} />}
-
             {page === 'feedbackPage' && <FeedbackPage userPhone={userPhone} userName={userName} />}
-
             {page === 'analyticsPage' && <AnalyticsDashboard />}
-
           </div>
 
           {page !== 'billPage' && (
             <CartBar totalItems={totalItems} totalPrice={totalPrice} goToBill={() => setPage('billPage')} />
           )}
-
           <BottomNav page={page} showPage={setPage} />
           <Footer />
         </>

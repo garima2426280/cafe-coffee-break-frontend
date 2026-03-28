@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { getImageUrl } from '../api/imageUrl';
+import { useOffer } from '../context/OfferContext';
 
 const TAGS = ['🔥 Trending', '⭐ Best Seller', '❤️ Most Loved', '🏆 Top Pick', '✨ Popular'];
 
-export default function MostOrdered({ cart, increase, decrease, discount }) {
+export default function MostOrdered({ cart, increase, decrease }) {
   const [topItems, setTopItems] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
+  const { isActive, discount, getDiscountedPrice, getSavings, urgency } = useOffer();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,11 +27,6 @@ export default function MostOrdered({ cart, increase, decrease, discount }) {
   const getMenuItem = (name) =>
     menuItems.find(m => m.name.toLowerCase() === name.toLowerCase());
 
-  const getDiscountedPrice = (price) => {
-    if (!discount || discount <= 0) return price;
-    return Math.round(price * (1 - discount / 100));
-  };
-
   if (topItems.length === 0) return null;
 
   return (
@@ -39,6 +36,11 @@ export default function MostOrdered({ cart, increase, decrease, discount }) {
           <h2 className="most-ordered-title">🔥 Most Ordered</h2>
           <p className="most-ordered-sub">What everyone's loving right now</p>
         </div>
+        {isActive && (
+          <div className={`mo-offer-badge ${urgency ? 'mo-offer-urgency' : ''}`}>
+            🎉 {discount}% OFF Active!
+          </div>
+        )}
       </div>
       <div className="most-ordered-scroll">
         {topItems.map((item, i) => {
@@ -46,11 +48,16 @@ export default function MostOrdered({ cart, increase, decrease, discount }) {
           if (!menuItem) return null;
           const originalPrice = menuItem.price;
           const discountedPrice = getDiscountedPrice(originalPrice);
-          const hasDiscount = discount > 0;
+          const savings = getSavings(originalPrice);
+          const hasDiscount = isActive && discount > 0;
           return (
-            <div className="most-ordered-card" key={i}>
+            <div
+              className={`most-ordered-card ${hasDiscount ? 'mo-card-offer' : ''} ${urgency && hasDiscount ? 'mo-card-urgency' : ''}`}
+              key={i}
+            >
               <div className="mo-rank">#{i + 1}</div>
-              <div className="mo-tag">{TAGS[i % TAGS.length]}</div>
+              {hasDiscount && <div className="mo-offer-tag">🔥 {discount}% OFF</div>}
+              {!hasDiscount && <div className="mo-tag">{TAGS[i % TAGS.length]}</div>}
               <img
                 src={getImageUrl(menuItem.image)}
                 alt={item.name}
@@ -64,12 +71,14 @@ export default function MostOrdered({ cart, increase, decrease, discount }) {
                     <>
                       <span className="mo-price-original">₹{originalPrice}</span>
                       <span className="mo-price-discounted">₹{discountedPrice}</span>
-                      <span className="mo-discount-badge">{discount}% OFF</span>
                     </>
                   ) : (
                     <span className="mo-price">₹{originalPrice}</span>
                   )}
                 </div>
+                {hasDiscount && savings > 0 && (
+                  <p className="mo-savings">Save ₹{savings}</p>
+                )}
                 <p className="mo-orders">{item.qty} orders</p>
               </div>
               <div className="mo-controls">
