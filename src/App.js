@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 
 import bgVideo from './assets/video/1-1.mp4';
@@ -23,7 +23,9 @@ import HistoryPage from './pages/HistoryPage';
 import FeedbackPage from './pages/FeedbackPage';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 
-import { useOffer } from './context/OfferContext';
+const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes in ms
+const USER_SESSION_KEY = 'cafeUserSession';
+const ADMIN_SESSION_KEY = 'cafeAdminSession';
 
 export default function App() {
   const [screen, setScreen] = useState('welcome');
@@ -33,48 +35,150 @@ export default function App() {
   const [userName, setUserName] = useState('');
   const [menuItems, setMenuItems] = useState([]);
   const [showSplash, setShowSplash] = useState(false);
-  const { getDiscountedPrice } = useOffer();
 
-  useEffect(() => { fetchMenu(); }, []);
+  const userTimerRef = useRef(null);
+  const adminTimerRef = useRef(null);
+
+  // ─── SESSION RESTORE ON REFRESH ───────────────────────────────
+  useEffect(() => {
+    // Restore USER session
+    try {
+      const raw = localStorage.getItem(USER_SESSION_KEY);
+      if (raw) {
+        const session = JSON.parse(raw);
+        const elapsed = Date.now() - session.loginTime;
+        if (elapsed < SESSION_TIMEOUT && session.phone) {
+          setUserPhone(session.phone);
+          setScreen('app');
+          startUserTimer(SESSION_TIMEOUT - elapsed);
+        } else {
+          localStorage.removeItem(USER_SESSION_KEY);
+        }
+      }
+    } catch (e) {
+      localStorage.removeItem(USER_SESSION_KEY);
+    }
+
+    // Restore ADMIN session
+    try {
+      const raw = localStorage.getItem(ADMIN_SESSION_KEY);
+      if (raw) {
+        const session = JSON.parse(raw);
+        const elapsed = Date.now() - session.loginTime;
+        if (elapsed < SESSION_TIMEOUT && session.token) {
+          localStorage.setItem('adminToken', session.token);
+          setScreen('admin');
+          startAdminTimer(SESSION_TIMEOUT - elapsed);
+        } else {
+          localStorage.removeItem(ADMIN_SESSION_KEY);
+          localStorage.removeItem('adminToken');
+        }
+      }
+    } catch (e) {
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+      localStorage.removeItem('adminToken');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── FETCH MENU ────────────────────────────────────────────────
+  useEffect(() => {
+    fetchMenu();
+  }, []);
 
   const fetchMenu = async () => {
     try {
       const res = await axios.get('/menu');
       setMenuItems(res.data);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
+  // ─── SESSION TIMERS ────────────────────────────────────────────
+  const startUserTimer = useCallback((duration = SESSION_TIMEOUT) => {
+    if (userTimerRef.current) clearTimeout(userTimerRef.current);
+    userTimerRef.current = setTimeout(() => {
+      alert('⏰ Your session has expired after 10 minutes. Please login again.');
+      handleUserLogout();
+    }, duration);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const startAdminTimer = useCallback((duration = SESSION_TIMEOUT) => {
+    if (adminTimerRef.current) clearTimeout(adminTimerRef.current);
+    adminTimerRef.current = setTimeout(() => {
+      alert('⏰ Admin session expired after 10 minutes. Please login again.');
+      handleAdminLogout();
+    }, duration);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── USER LOGIN ────────────────────────────────────────────────
+  const handleUserEnter = (phone) => {
+    setUserPhone(phone);
+    setShowSplash(true);
+    // Save session to localStorage
+    localStorage.setItem(USER_SESSION_KEY, JSON.stringify({
+      phone,
+      loginTime: Date.now(),
+    }));
+    startUserTimer();
+  };
+
+  // Called after splash completes
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+    setScreen('app');
+  };
+
+  // ─── USER LOGOUT ───────────────────────────────────────────────
+  const handleUserLogout = useCallback(() => {
+    if (userTimerRef.current) clearTimeout(userTimerRef.current);
+    localStorage.removeItem(USER_SESSION_KEY);
+    setUserPhone('');
+    setUserName('');
+    setCart({});
+    setPage('homePage');
+    setScreen('welcome');
+  }, []);
+
+  // ─── ADMIN LOGIN ───────────────────────────────────────────────
+  const handleAdminLogin = () => {
+    localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({
+      token: 'garima-admin-secret-token',
+      loginTime: Date.now(),
+    }));
+    setScreen('admin');
+    startAdminTimer();
+  };
+
+  // ─── ADMIN LOGOUT ──────────────────────────────────────────────
+  const handleAdminLogout = useCallback(() => {
+    if (adminTimerRef.current) clearTimeout(adminTimerRef.current);
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    localStorage.removeItem('adminToken');
+    setScreen('welcome');
+  }, []);
+
+  // ─── CART ──────────────────────────────────────────────────────
   const increase = (id) => setCart(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
 
   const decrease = (id) => setCart(prev => {
-    const curr = prev[id] || 0;
-    if (curr <= 0) return prev;
-    return { ...prev, [id]: curr - 1 };
+    const current = prev[id] || 0;
+    if (current <= 0) return prev;
+    return { ...prev, [id]: current - 1 };
   });
 
   const clearCart = () => setCart({});
 
-  const totalItems = Object.values(cart).reduce((s, q) => s + q, 0);
-
+  const totalItems = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
   const totalPrice = Object.entries(cart).reduce((sum, [id, qty]) => {
     const item = menuItems.find(m => m._id === id);
-    if (!item) return sum;
-    return sum + qty * getDiscountedPrice(item.price);
+    return sum + qty * (item ? item.price : 0);
   }, 0);
 
-  const handleUserEnter = (phone) => {
-    setUserPhone(phone);
-    setShowSplash(true);
-  };
-
-  const handleLogout = () => {
-    setUserPhone('');
-    setUserName('');
-    setCart({});
-    setScreen('welcome');
-    setPage('homePage');
-  };
-
+  // ─── RENDER ────────────────────────────────────────────────────
   return (
     <>
       <video autoPlay muted loop playsInline className="bg-video">
@@ -82,24 +186,34 @@ export default function App() {
       </video>
 
       {showSplash && (
-        <SplashScreen onComplete={() => { setShowSplash(false); setScreen('app'); }} />
+        <SplashScreen onComplete={handleSplashComplete} />
       )}
 
       {screen === 'welcome' && !showSplash && (
-        <WelcomePage onEnter={handleUserEnter} showAdminLogin={() => setScreen('adminLogin')} />
+        <WelcomePage
+          onEnter={handleUserEnter}
+          showAdminLogin={() => setScreen('adminLogin')}
+        />
       )}
 
       {screen === 'adminLogin' && (
-        <AdminLogin onLogin={() => setScreen('admin')} onBack={() => setScreen('welcome')} />
+        <AdminLogin
+          onLogin={handleAdminLogin}
+          onBack={() => setScreen('welcome')}
+        />
       )}
 
       {screen === 'admin' && (
-        <AdminDashboard onLogout={() => setScreen('welcome')} />
+        <AdminDashboard onLogout={handleAdminLogout} />
       )}
 
       {screen === 'app' && !showSplash && (
         <>
-          <Header showPage={setPage} userPhone={userPhone} onLogout={handleLogout} />
+          <Header
+            showPage={setPage}
+            userPhone={userPhone}
+            onLogout={handleUserLogout}
+          />
 
           <div className="page-wrapper">
             {page === 'homePage' && (
@@ -122,7 +236,11 @@ export default function App() {
                 />
               </>
             )}
-            {page === 'cartPage' && <CartPage cart={cart} menuItems={menuItems} />}
+
+            {page === 'cartPage' && (
+              <CartPage cart={cart} menuItems={menuItems} />
+            )}
+
             {page === 'billPage' && (
               <BillPage
                 cart={cart}
@@ -133,14 +251,30 @@ export default function App() {
                 onNameSet={setUserName}
               />
             )}
-            {page === 'historyPage' && <HistoryPage userPhone={userPhone} />}
-            {page === 'feedbackPage' && <FeedbackPage userPhone={userPhone} userName={userName} />}
-            {page === 'analyticsPage' && <AnalyticsDashboard />}
+
+            {page === 'historyPage' && (
+              <HistoryPage userPhone={userPhone} />
+            )}
+
+            {page === 'feedbackPage' && (
+              <FeedbackPage userPhone={userPhone} userName={userName} />
+            )}
+
+            {page === 'analyticsPage' && (
+              <AnalyticsDashboard />
+            )}
           </div>
 
           {page !== 'billPage' && (
-            <CartBar totalItems={totalItems} totalPrice={totalPrice} goToBill={() => setPage('billPage')} />
+            <CartBar
+              totalItems={totalItems}
+              totalPrice={totalPrice}
+              goToBill={() => setPage('billPage')}
+              cart={cart}
+              menuItems={menuItems}
+            />
           )}
+
           <BottomNav page={page} showPage={setPage} />
           <Footer />
         </>

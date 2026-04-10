@@ -18,7 +18,7 @@ const CATEGORIES = ['Hot Drinks', 'Cold Drinks', 'Snacks', 'Meals'];
 export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { isActive, discount, getDiscountedPrice, getSavings, urgency } = useOffer();
+  const { isActive, discount, getDiscountedPrice, getSavings } = useOffer();
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -39,7 +39,10 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
   if (loading) {
     return (
       <section className="menu-section page active">
-        <div className="menu-loading"><span>☕</span><p>Loading menu...</p></div>
+        <div className="menu-loading">
+          <span>☕</span>
+          <p>Loading menu...</p>
+        </div>
       </section>
     );
   }
@@ -47,21 +50,50 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
   return (
     <section className="menu-section page active" style={{ position: 'relative' }}>
 
+      {/* FLOATING IMAGES */}
       <img src={coffeeImg}     className="menu-float menu-float-1" alt="coffee" />
       <img src={coldcoffeeImg} className="menu-float menu-float-2" alt="cold coffee" />
       <img src={teaImg}        className="menu-float menu-float-3" alt="tea" />
       <img src={greenteaImg}   className="menu-float menu-float-4" alt="green tea" />
 
+      {/* CAROUSEL BANNER */}
       <div className="menu-top-section"><CarouselBanner /></div>
+
+      {/* ANNOUNCEMENT BAR */}
       <div className="menu-top-section"><AnnouncementBar /></div>
+
+      {/* HAPPY HOUR BANNER */}
       <div className="menu-top-section"><HappyHourBanner /></div>
 
+      {/* MOST ORDERED */}
       {items.length > 0 && (
         <MostOrdered cart={cart} increase={increase} decrease={decrease} />
       )}
 
+      {/* CATEGORY TAGS — centered */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        flexWrap: 'wrap',
+        gap: '12px',
+        margin: '20px auto 24px auto',
+        padding: '0 20px',
+        maxWidth: '900px',
+        position: 'relative',
+        zIndex: 1,
+      }}>
+        <span className="welcome-feature-tag">☕ Hot Drinks</span>
+        <span className="welcome-feature-tag">🧊 Cold Drinks</span>
+        <span className="welcome-feature-tag">🍱 Meals</span>
+        <span className="welcome-feature-tag">🥪 Snacks</span>
+      </div>
+
+      {/* MENU ITEMS */}
       {items.length === 0 ? (
-        <div className="menu-loading"><span>☕</span><p>No menu items yet.</p></div>
+        <div className="menu-loading">
+          <span>☕</span>
+          <p>No menu items yet. Admin needs to add items.</p>
+        </div>
       ) : (
         CATEGORIES.map(category => {
           const categoryItems = items.filter(item => item.category === category);
@@ -76,7 +108,7 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
                   const hasDiscount = isActive && discount > 0;
                   return (
                     <div
-                      className={`menu-row ${hasDiscount ? 'menu-row-offer' : ''} ${urgency && hasDiscount ? 'menu-row-urgency' : ''}`}
+                      className={`menu-row ${hasDiscount ? 'menu-row-offer' : ''}`}
                       key={item._id}
                     >
                       <img

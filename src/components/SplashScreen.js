@@ -100,7 +100,7 @@ export default function SplashScreen({ onComplete }) {
             margin: 0,
             letterSpacing: '3px',
           }}>
-            Cafe Coffe
+            Cafe Coffee
           </p>
           <p style={{
             fontFamily: 'Poppins, sans-serif',
