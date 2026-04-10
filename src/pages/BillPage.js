@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from '../api/axios';
-import { useOffer } from '../context/OfferContext';
 import FeedbackModal from '../components/FeedbackModal';
+import { useOffer } from '../context/OfferContext';
 
 export default function BillPage({ cart, menuItems, clearCart, showPage, userPhone, onNameSet }) {
   const [name, setName] = useState('');
@@ -9,7 +9,9 @@ export default function BillPage({ cart, menuItems, clearCart, showPage, userPho
   const [payment, setPayment] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
   const [lastOrderId, setLastOrderId] = useState('');
-  const { isActive, discount, getDiscountedPrice, getSavings } = useOffer();
+
+  // eslint-disable-next-line no-unused-vars
+  const { isActive, discount, getDiscountedPrice } = useOffer();
 
   const getItem = (id) => menuItems.find(m => m._id === id);
   const cartItems = Object.entries(cart).filter(([, qty]) => qty > 0);
@@ -25,8 +27,7 @@ export default function BillPage({ cart, menuItems, clearCart, showPage, userPho
     return sum + qty * getDiscountedPrice(item.price);
   }, 0);
 
-  const totalSavings = originalTotal - total;
-  const hasDiscount = isActive && discount > 0;
+  const totalSaved = originalTotal - total;
 
   const submitOrder = async () => {
     if (!name || !table || !payment) {
@@ -37,57 +38,77 @@ export default function BillPage({ cart, menuItems, clearCart, showPage, userPho
       alert('Your cart is empty');
       return;
     }
-
     if (onNameSet) onNameSet(name);
 
     const items = cartItems.map(([id, qty]) => {
       const item = getItem(id);
+      const finalPrice = getDiscountedPrice(item ? item.price : 0);
       return {
         name: item ? item.name : id,
         qty,
-        price: qty * getDiscountedPrice(item ? item.price : 0),
+        price: qty * finalPrice,
         originalPrice: item ? item.price : 0,
+        discount: isActive ? discount : 0,
       };
     });
 
     const order = {
       phone: userPhone,
-      name, table, payment, items, total,
-      discount: hasDiscount ? discount : 0,
+      name,
+      table,
+      payment,
+      items,
+      total,
+      originalTotal,
+      savedAmount: totalSaved,
+      happyHour: isActive,
       date: new Date().toLocaleString(),
     };
 
     try {
       const res = await axios.post('/orders', order);
-      setLastOrderId(res.data._id || '');
+      const orderId = res.data._id || '';
+      setLastOrderId(orderId);
 
-      let message = '☕ Cafe Order%0A%0A';
-      message += 'Customer: ' + name + '%0A';
-      message += 'Phone: ' + userPhone + '%0A';
-      message += 'Table: ' + table + '%0A';
-      message += 'Payment: ' + payment + '%0A';
-      if (hasDiscount) message += 'Discount: ' + discount + '% OFF%0A';
-      message += '%0A';
+      /* WHATSAPP */
+      let message = '☕ Cafe Coffee Break Order%0A%0A';
+      message += `Customer: ${name}%0A`;
+      message += `Phone: ${userPhone}%0A`;
+      message += `Table: ${table}%0A`;
+      message += `Payment: ${payment}%0A`;
+      if (isActive && totalSaved > 0) {
+        message += `Happy Hour: ${discount}% OFF Applied!%0A`;
+      }
+      message += '%0AItems:%0A';
       items.forEach(it => {
-        message += it.name + ' x ' + it.qty + ' = ₹' + it.price + '%0A';
+        message += `${it.name} x ${it.qty} = ₹${it.price}%0A`;
       });
-      if (totalSavings > 0) message += '%0ASaved: ₹' + totalSavings + '%0A';
-      message += '%0ATotal: ₹' + total;
+      if (totalSaved > 0) {
+        message += `%0AOriginal: ₹${originalTotal}%0A`;
+        message += `Saved: ₹${totalSaved}%0A`;
+      }
+      message += `%0ATotal: ₹${total}`;
       window.open('https://wa.me/919405253204?text=' + message, '_blank');
 
       clearCart();
       setShowFeedback(true);
+
     } catch (err) {
       console.error(err);
-      alert('Failed to save order.');
+      alert('Failed to save order. Is your backend running?');
     }
+  };
+
+  const handleFeedbackClose = () => {
+    setShowFeedback(false);
+    showPage('historyPage');
   };
 
   return (
     <>
       {showFeedback && (
         <FeedbackModal
-          onClose={() => { setShowFeedback(false); showPage('historyPage'); }}
+          onClose={handleFeedbackClose}
           userPhone={userPhone}
           userName={name}
           orderId={lastOrderId}
@@ -98,21 +119,25 @@ export default function BillPage({ cart, menuItems, clearCart, showPage, userPho
         <div className="bill-card">
           <h2>☕ Cafe Coffee Break</h2>
 
-          {hasDiscount && (
-            <div className="bill-offer-banner">
-              🔥 Happy Hour: {discount}% OFF Applied!
+          {/* HAPPY HOUR INDICATOR */}
+          {isActive && (
+            <div className="bill-hh-badge">
+              🔥 Happy Hour Active — {discount}% OFF
             </div>
           )}
 
           <table style={{ width: '100%', marginBottom: '10px', borderCollapse: 'collapse' }}>
             <tbody>
               {cartItems.length === 0 ? (
-                <tr><td style={{ padding: '8px 0', color: '#888' }}>No items in cart</td></tr>
+                <tr>
+                  <td style={{ padding: '8px 0', color: '#888' }}>No items in cart</td>
+                </tr>
               ) : (
                 cartItems.map(([id, qty]) => {
                   const item = getItem(id);
                   if (!item) return null;
-                  const dp = getDiscountedPrice(item.price);
+                  const discountedPrice = getDiscountedPrice(item.price);
+                  const hasDiscount = isActive && discount > 0;
                   return (
                     <tr key={id} style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ padding: '6px 0', fontSize: '13px' }}>{item.name}</td>
@@ -120,11 +145,16 @@ export default function BillPage({ cart, menuItems, clearCart, showPage, userPho
                       <td style={{ textAlign: 'right', fontSize: '13px' }}>
                         {hasDiscount ? (
                           <span>
-                            <span style={{ textDecoration: 'line-through', color: '#aaa', marginRight: '4px' }}>₹{item.price}</span>
-                            <span style={{ color: '#2ea44f', fontWeight: '600' }}>₹{dp}</span>
+                            <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '11px' }}>
+                              ₹{item.price * qty}
+                            </span>
+                            {' '}
+                            <span style={{ color: '#2ea44f', fontWeight: '700' }}>
+                              ₹{discountedPrice * qty}
+                            </span>
                           </span>
                         ) : (
-                          <span>₹{qty * item.price}</span>
+                          <span>₹{item.price * qty}</span>
                         )}
                       </td>
                     </tr>
@@ -134,26 +164,32 @@ export default function BillPage({ cart, menuItems, clearCart, showPage, userPho
             </tbody>
           </table>
 
-          {hasDiscount && totalSavings > 0 && (
-            <p style={{ color: '#2ea44f', fontSize: '13px', marginBottom: '6px', textAlign: 'right' }}>
-              🎉 You saved ₹{totalSavings}!
-            </p>
+          {isActive && totalSaved > 0 && (
+            <div className="bill-savings">
+              🎉 You saved ₹{totalSaved} with Happy Hour!
+            </div>
           )}
 
           <h3 style={{ marginBottom: '15px' }}>
-            {hasDiscount && originalTotal !== total && (
-              <span style={{ textDecoration: 'line-through', color: '#aaa', fontSize: '14px', marginRight: '8px' }}>
-                ₹{originalTotal}
-              </span>
-            )}
             TOTAL ₹<span>{total}</span>
           </h3>
 
           <label>Customer Name *</label>
-          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Enter your name" />
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Enter your name"
+          />
 
           <label>Table No (1-20) *</label>
-          <input type="number" value={table} onChange={e => setTable(e.target.value)} min="1" max="20" placeholder="Enter table number" />
+          <input
+            type="number"
+            value={table}
+            onChange={e => setTable(e.target.value)}
+            min="1" max="20"
+            placeholder="Enter table number"
+          />
 
           <label>Payment Method *</label>
           <select value={payment} onChange={e => setPayment(e.target.value)}>
@@ -163,7 +199,9 @@ export default function BillPage({ cart, menuItems, clearCart, showPage, userPho
             <option>Card</option>
           </select>
 
-          <button type="button" onClick={submitOrder}>SUBMIT ORDER</button>
+          <button type="button" onClick={submitOrder}>
+            SUBMIT ORDER
+          </button>
         </div>
       </section>
     </>
