@@ -22,8 +22,9 @@ import BillPage from './pages/BillPage';
 import HistoryPage from './pages/HistoryPage';
 import FeedbackPage from './pages/FeedbackPage';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import TableStatusPage from './pages/TableStatusPage';
 
-const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes in ms
+const SESSION_TIMEOUT = 10 * 60 * 1000;
 const USER_SESSION_KEY = 'cafeUserSession';
 const ADMIN_SESSION_KEY = 'cafeAdminSession';
 
@@ -39,9 +40,7 @@ export default function App() {
   const userTimerRef = useRef(null);
   const adminTimerRef = useRef(null);
 
-  // ─── SESSION RESTORE ON REFRESH ───────────────────────────────
   useEffect(() => {
-    // Restore USER session
     try {
       const raw = localStorage.getItem(USER_SESSION_KEY);
       if (raw) {
@@ -59,7 +58,6 @@ export default function App() {
       localStorage.removeItem(USER_SESSION_KEY);
     }
 
-    // Restore ADMIN session
     try {
       const raw = localStorage.getItem(ADMIN_SESSION_KEY);
       if (raw) {
@@ -78,31 +76,25 @@ export default function App() {
       localStorage.removeItem(ADMIN_SESSION_KEY);
       localStorage.removeItem('adminToken');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── FETCH MENU ────────────────────────────────────────────────
-  useEffect(() => {
-    fetchMenu();
-  }, []);
+  useEffect(() => { fetchMenu(); }, []);
 
   const fetchMenu = async () => {
     try {
       const res = await axios.get('/menu');
       setMenuItems(res.data);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
-  // ─── SESSION TIMERS ────────────────────────────────────────────
   const startUserTimer = useCallback((duration = SESSION_TIMEOUT) => {
     if (userTimerRef.current) clearTimeout(userTimerRef.current);
     userTimerRef.current = setTimeout(() => {
       alert('⏰ Your session has expired after 10 minutes. Please login again.');
       handleUserLogout();
     }, duration);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startAdminTimer = useCallback((duration = SESSION_TIMEOUT) => {
@@ -111,28 +103,21 @@ export default function App() {
       alert('⏰ Admin session expired after 10 minutes. Please login again.');
       handleAdminLogout();
     }, duration);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── USER LOGIN ────────────────────────────────────────────────
   const handleUserEnter = (phone) => {
     setUserPhone(phone);
     setShowSplash(true);
-    // Save session to localStorage
-    localStorage.setItem(USER_SESSION_KEY, JSON.stringify({
-      phone,
-      loginTime: Date.now(),
-    }));
+    localStorage.setItem(USER_SESSION_KEY, JSON.stringify({ phone, loginTime: Date.now() }));
     startUserTimer();
   };
 
-  // Called after splash completes
   const handleSplashComplete = () => {
     setShowSplash(false);
     setScreen('app');
   };
 
-  // ─── USER LOGOUT ───────────────────────────────────────────────
   const handleUserLogout = useCallback(() => {
     if (userTimerRef.current) clearTimeout(userTimerRef.current);
     localStorage.removeItem(USER_SESSION_KEY);
@@ -143,7 +128,6 @@ export default function App() {
     setScreen('welcome');
   }, []);
 
-  // ─── ADMIN LOGIN ───────────────────────────────────────────────
   const handleAdminLogin = () => {
     localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({
       token: 'garima-admin-secret-token',
@@ -153,7 +137,6 @@ export default function App() {
     startAdminTimer();
   };
 
-  // ─── ADMIN LOGOUT ──────────────────────────────────────────────
   const handleAdminLogout = useCallback(() => {
     if (adminTimerRef.current) clearTimeout(adminTimerRef.current);
     localStorage.removeItem(ADMIN_SESSION_KEY);
@@ -161,7 +144,6 @@ export default function App() {
     setScreen('welcome');
   }, []);
 
-  // ─── CART ──────────────────────────────────────────────────────
   const increase = (id) => setCart(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
 
   const decrease = (id) => setCart(prev => {
@@ -178,16 +160,13 @@ export default function App() {
     return sum + qty * (item ? item.price : 0);
   }, 0);
 
-  // ─── RENDER ────────────────────────────────────────────────────
   return (
     <>
       <video autoPlay muted loop playsInline className="bg-video">
         <source src={bgVideo} type="video/mp4" />
       </video>
 
-      {showSplash && (
-        <SplashScreen onComplete={handleSplashComplete} />
-      )}
+      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
 
       {screen === 'welcome' && !showSplash && (
         <WelcomePage
@@ -197,10 +176,7 @@ export default function App() {
       )}
 
       {screen === 'adminLogin' && (
-        <AdminLogin
-          onLogin={handleAdminLogin}
-          onBack={() => setScreen('welcome')}
-        />
+        <AdminLogin onLogin={handleAdminLogin} onBack={() => setScreen('welcome')} />
       )}
 
       {screen === 'admin' && (
@@ -216,6 +192,7 @@ export default function App() {
           />
 
           <div className="page-wrapper">
+
             {page === 'homePage' && (
               <>
                 <section className="hero">
@@ -236,10 +213,15 @@ export default function App() {
                 />
               </>
             )}
-
-            {page === 'cartPage' && (
-              <CartPage cart={cart} menuItems={menuItems} />
-            )}
+{page === 'cartPage' && (
+  <CartPage
+    cart={cart}
+    menuItems={menuItems}
+    showPage={setPage}
+    increase={increase}
+    decrease={decrease}
+  />
+)}
 
             {page === 'billPage' && (
               <BillPage
@@ -263,6 +245,11 @@ export default function App() {
             {page === 'analyticsPage' && (
               <AnalyticsDashboard />
             )}
+
+            {page === 'tableStatusPage' && (
+              <TableStatusPage userPhone={userPhone} />
+            )}
+
           </div>
 
           {page !== 'billPage' && (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from '../api/axios';
 import { getImageUrl } from '../api/imageUrl';
 import { useOffer } from '../context/OfferContext';
@@ -18,6 +18,7 @@ const CATEGORIES = ['Hot Drinks', 'Cold Drinks', 'Snacks', 'Meals'];
 export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
   const { isActive, discount, getDiscountedPrice, getSavings } = useOffer();
 
   useEffect(() => {
@@ -26,23 +27,27 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
         const res = await axios.get('/menu');
         setItems(res.data);
         if (onMenuLoaded) onMenuLoaded(res.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { console.error(err); }
+      finally { setLoading(false); }
     };
     fetchItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const showToast = useCallback((itemName) => {
+    setToast(`✅ ${itemName} added to cart!`);
+    setTimeout(() => setToast(null), 2000);
+  }, []);
+
+  const handleIncrease = useCallback((item) => {
+    increase(item._id);
+    showToast(item.name);
+  }, [increase, showToast]);
+
   if (loading) {
     return (
       <section className="menu-section page active">
-        <div className="menu-loading">
-          <span>☕</span>
-          <p>Loading menu...</p>
-        </div>
+        <div className="menu-loading"><span>☕</span><p>Loading menu...</p></div>
       </section>
     );
   }
@@ -50,37 +55,33 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
   return (
     <section className="menu-section page active" style={{ position: 'relative' }}>
 
+      {/* TOAST NOTIFICATION */}
+      {toast && (
+        <div className="cart-toast">
+          {toast}
+        </div>
+      )}
+
       {/* FLOATING IMAGES */}
       <img src={coffeeImg}     className="menu-float menu-float-1" alt="coffee" />
       <img src={coldcoffeeImg} className="menu-float menu-float-2" alt="cold coffee" />
       <img src={teaImg}        className="menu-float menu-float-3" alt="tea" />
       <img src={greenteaImg}   className="menu-float menu-float-4" alt="green tea" />
 
-      {/* CAROUSEL BANNER */}
       <div className="menu-top-section"><CarouselBanner /></div>
-
-      {/* ANNOUNCEMENT BAR */}
       <div className="menu-top-section"><AnnouncementBar /></div>
-
-      {/* HAPPY HOUR BANNER */}
       <div className="menu-top-section"><HappyHourBanner /></div>
 
-      {/* MOST ORDERED */}
       {items.length > 0 && (
         <MostOrdered cart={cart} increase={increase} decrease={decrease} />
       )}
 
-      {/* CATEGORY TAGS — centered */}
+      {/* CATEGORY TAGS */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        flexWrap: 'wrap',
-        gap: '12px',
-        margin: '20px auto 24px auto',
-        padding: '0 20px',
-        maxWidth: '900px',
-        position: 'relative',
-        zIndex: 1,
+        display: 'flex', justifyContent: 'center', flexWrap: 'wrap',
+        gap: '12px', margin: '20px auto 24px auto',
+        padding: '0 20px', maxWidth: '900px',
+        position: 'relative', zIndex: 1,
       }}>
         <span className="welcome-feature-tag">☕ Hot Drinks</span>
         <span className="welcome-feature-tag">🧊 Cold Drinks</span>
@@ -90,10 +91,7 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
 
       {/* MENU ITEMS */}
       {items.length === 0 ? (
-        <div className="menu-loading">
-          <span>☕</span>
-          <p>No menu items yet. Admin needs to add items.</p>
-        </div>
+        <div className="menu-loading"><span>☕</span><p>No menu items yet.</p></div>
       ) : (
         CATEGORIES.map(category => {
           const categoryItems = items.filter(item => item.category === category);
@@ -106,6 +104,8 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
                   const discountedPrice = getDiscountedPrice(item.price);
                   const savings = getSavings(item.price);
                   const hasDiscount = isActive && discount > 0;
+                  const qty = cart[item._id] || 0;
+
                   return (
                     <div
                       className={`menu-row ${hasDiscount ? 'menu-row-offer' : ''}`}
@@ -134,11 +134,24 @@ export default function MenuPage({ cart, increase, decrease, onMenuLoaded }) {
                           <p className="menu-savings">You save ₹{savings}</p>
                         )}
                       </div>
-                      <div className="controls">
-                        <button onClick={() => decrease(item._id)}>-</button>
-                        <span>{cart[item._id] || 0}</span>
-                        <button onClick={() => increase(item._id)}>+</button>
-                      </div>
+
+                      {/* CONTROLS */}
+                      {qty === 0 ? (
+                        /* ADD TO CART BUTTON when qty is 0 */
+                        <button
+                          className="menu-add-btn"
+                          onClick={() => handleIncrease(item)}
+                        >
+                          + Add
+                        </button>
+                      ) : (
+                        /* QTY CONTROLS when item already in cart */
+                        <div className="controls">
+                          <button onClick={() => decrease(item._id)}>-</button>
+                          <span>{qty}</span>
+                          <button onClick={() => handleIncrease(item)}>+</button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
